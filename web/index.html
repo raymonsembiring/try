@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Shorts Bot</title>
+    <style>
+      body { font-family: sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+      code { background: #f5f5f5; padding: 2px 4px; border-radius: 4px; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 12px 0; }
+      input, button { padding: 8px 12px; }
+      input { width: 100%; box-sizing: border-box; }
+    </style>
+  </head>
+  <body>
+    <h1>YouTube Shorts Bot</h1>
+    <div class="card">
+      <h3>Webhook and OAuth Redirect URIs</h3>
+      <button id="refresh">Refresh</button>
+      <pre id="uris">Loading...</pre>
+      <p>Paste <code>googleOAuthRedirect</code> into Google Console Authorized redirect URIs.</p>
+      <p>Set Telegram webhook to <code>telegramWebhook</code> via BotFather or API.</p>
+    </div>
+    <div class="card">
+      <h3>Link your Google (YouTube) account</h3>
+      <p>Enter your Telegram user id to link:</p>
+      <input id="userId" placeholder="Telegram user id" />
+      <button id="link">Link Google</button>
+    </div>
+    <script>
+      async function loadUris() {
+        const res = await fetch('/utils/uris');
+        const data = await res.json();
+        document.getElementById('uris').textContent = JSON.stringify(data, null, 2);
+      }
+      document.getElementById('refresh').onclick = loadUris;
+      loadUris();
+      document.getElementById('link').onclick = () => {
+        const userId = document.getElementById('userId').value.trim();
+        if (!userId) return alert('Enter Telegram user id');
+        window.location.href = '/oauth2/authorize?user_id=' + encodeURIComponent(userId);
+      };
+    </script>
+  </body>
+  </html>
+
