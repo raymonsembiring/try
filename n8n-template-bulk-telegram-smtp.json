@@ -1,0 +1,251 @@
+{
+  "name": "Bulk Email via Telegram /send (Gmail SMTP)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "telegramTrigger1",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.message && $json.message.text}}",
+              "operation": "startsWith",
+              "value2": "/send"
+            }
+          ]
+        }
+      },
+      "id": "ifSendCmd1",
+      "name": "IF /send",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        520,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "Started bulk email sending...",
+        "additionalFields": {}
+      },
+      "id": "tgAckStart1",
+      "name": "Telegram Ack Start",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        780,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Build your recipient list here. Replace with your data source if needed.\nconst chatId = $node[\"Telegram Trigger\"].json?.message?.chat?.id;\nreturn [\n  { json: { chatId, smtpUser: 'A', to: 'recipient1@example.com', subject: 'Newsletter', text: 'Hello there', html: '<p>Hello there</p>' } },\n  { json: { chatId, smtpUser: 'B', to: 'recipient2@example.com', subject: 'Newsletter', text: 'Hello there', html: '<p>Hello there</p>' } }\n];"
+      },
+      "id": "buildRecipients1",
+      "name": "Build Recipients",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 30
+      },
+      "id": "splitBatches1",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.smtpUser}}",
+              "operation": "equals",
+              "value2": "A"
+            }
+          ]
+        }
+      },
+      "id": "ifSmtpRoute1",
+      "name": "IF smtpUser == A",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1290,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-user@your-domain.com",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "text": "={{$json.text}}",
+        "html": "={{$json.html}}"
+      },
+      "id": "sendEmailBatch1",
+      "name": "Send Email (SMTP A)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1530,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-user@your-domain.com",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "text": "={{$json.text}}",
+        "html": "={{$json.html}}"
+      },
+      "id": "sendEmailBatch2",
+      "name": "Send Email (SMTP B)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1530,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "Bulk email sending complete.",
+        "additionalFields": {}
+      },
+      "id": "tgAckDone1",
+      "name": "Telegram Ack Done",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1290,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF /send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /send": {
+      "main": [
+        [
+          {
+            "node": "Telegram Ack Start",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Recipients",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Build Recipients": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "IF smtpUser == A",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Ack Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF smtpUser == A": {
+      "main": [
+        [
+          {
+            "node": "Send Email (SMTP A)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email (SMTP B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP A)": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP B)": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "staticData": null
+}
+
