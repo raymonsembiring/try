@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{$json.message.chat.id}}",
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
         "text": "Started bulk email sending...",
         "additionalFields": {}
       },
@@ -50,7 +50,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Build your recipient list here. Replace with your data source if needed.\nreturn [\n  { json: { to: 'recipient1@example.com', subject: 'Newsletter', text: 'Hello there', html: '<p>Hello there</p>' } },\n  { json: { to: 'recipient2@example.com', subject: 'Newsletter', text: 'Hello there', html: '<p>Hello there</p>' } }\n];"
+        "functionCode": "// Build your recipient list here. Replace with your data source if needed.\nconst chatId = $node[\"Telegram Trigger\"].json?.message?.chat?.id;\nreturn [\n  { json: { chatId, smtpUser: 'A', to: 'recipient1@example.com', subject: 'Newsletter', text: 'Hello there', html: '<p>Hello there</p>' } },\n  { json: { chatId, smtpUser: 'B', to: 'recipient2@example.com', subject: 'Newsletter', text: 'Hello there', html: '<p>Hello there</p>' } }\n];"
       },
       "id": "buildRecipients1",
       "name": "Build Recipients",
@@ -76,15 +76,19 @@
     },
     {
       "parameters": {
-        "fromEmail": "your-user@your-domain.com",
-        "toEmail": "={{$json.to}}",
-        "subject": "={{$json.subject}}",
-        "text": "={{$json.text}}",
-        "html": "={{$json.html}}"
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.smtpUser}}",
+              "operation": "equals",
+              "value2": "A"
+            }
+          ]
+        }
       },
-      "id": "sendEmailBatch1",
-      "name": "Send Email (SMTP)",
-      "type": "n8n-nodes-base.emailSend",
+      "id": "ifSmtpRoute1",
+      "name": "IF smtpUser == A",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
         1290,
@@ -93,7 +97,41 @@
     },
     {
       "parameters": {
-        "chatId": "={{$json.message.chat.id}}",
+        "fromEmail": "your-user@your-domain.com",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "text": "={{$json.text}}",
+        "html": "={{$json.html}}"
+      },
+      "id": "sendEmailBatch1",
+      "name": "Send Email (SMTP A)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1530,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-user@your-domain.com",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "text": "={{$json.text}}",
+        "html": "={{$json.html}}"
+      },
+      "id": "sendEmailBatch2",
+      "name": "Send Email (SMTP B)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1530,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
         "text": "Bulk email sending complete.",
         "additionalFields": {}
       },
@@ -151,7 +189,7 @@
       "main": [
         [
           {
-            "node": "Send Email (SMTP)",
+            "node": "IF smtpUser == A",
             "type": "main",
             "index": 0
           }
@@ -165,7 +203,36 @@
         ]
       ]
     },
-    "Send Email (SMTP)": {
+    "IF smtpUser == A": {
+      "main": [
+        [
+          {
+            "node": "Send Email (SMTP A)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email (SMTP B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP A)": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Send Email (SMTP B)": {
       "main": [
         [
           {
