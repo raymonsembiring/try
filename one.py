@@ -147,7 +147,7 @@ def main():
 
     # Build payload aligned with provided sample
     video_inputs = []
-    # Entry 1: background setup with avatar shell (no id)
+    # Entry 1: background setup with avatar (includes avatar_id to satisfy API)
     background_one: Dict[str, Any] = {"type": args.background_type}
     if args.background_url and args.background_type == "image":
         background_one["image_url"] = args.background_url
@@ -156,6 +156,7 @@ def main():
             "type": "avatar",
             "scale": args.avatar_scale,
             "avatar_style": args.avatar_style,
+            "avatar_id": args.avatar_id,
         },
         "background": background_one,
     })
