@@ -1,11 +1,9 @@
 import os
 import time
-import base64
 import argparse
 from pathlib import Path
 from typing import Optional, Dict, Any
 import requests
-import mimetypes
 
 
 def resolve_heygen_api_key(cli_api_key: Optional[str]) -> str:
@@ -18,33 +16,16 @@ def resolve_heygen_api_key(cli_api_key: Optional[str]) -> str:
         "Missing HeyGen API key. Provide via --heygen-api-key or env HEYGEN_API_KEY"
     )
 
-def _guess_mime_type_from_path(path: Path) -> str:
-    guessed, _ = mimetypes.guess_type(str(path))
-    if guessed:
-        return guessed
-    return "image/png"
-
-
-def _build_data_url(image_bytes: bytes, mime_type: str) -> str:
-    b64 = base64.b64encode(image_bytes).decode("utf-8")
-    return f"data:{mime_type};base64,{b64}"
-
-
 # --- HeyGen integration ---
 
 
 def submit_heygen_generate(
     api_host: str,
     api_key: str,
-    image_source: str,
-    script_text: str,
-    voice_id: str,
-    width: int,
-    height: int,
+    payload: Dict[str, Any],
 ) -> str:
-    """Submit a video generation job to HeyGen v2 using an image talking photo.
+    """Submit a video generation job to HeyGen v2 with provided payload.
 
-    `image_source` should be either a public URL or a data URL (data:image/*;base64,...).
     Returns a `video_id` for polling.
     """
     url = f"{api_host.rstrip('/')}/v2/video/generate"
@@ -52,22 +33,6 @@ def submit_heygen_generate(
         "X-Api-Key": api_key,
         "Accept": "application/json",
         "Content-Type": "application/json",
-    }
-
-    payload: Dict[str, Any] = {
-        "video_inputs": [
-            {
-                "character": {
-                    "type": "image",
-                    "image_url": image_source,
-                },
-                "voice": {
-                    "voice_id": voice_id,
-                    "input_text": script_text,
-                },
-            }
-        ],
-        "dimension": {"width": width, "height": height},
     }
 
     print(f"[debug] POST {url}")
@@ -133,12 +98,38 @@ def main():
     # HeyGen only
     parser.add_argument("--heygen-api-key")
     parser.add_argument("--heygen-api-host", default=os.getenv("HEYGEN_API_HOST", "https://api.heygen.com"))
-    parser.add_argument("--heygen-voice-id", required=True, help="HeyGen voice id to use for speech")
-    parser.add_argument("--segment-text", required=True, help="Text to be spoken in the video")
-    parser.add_argument("--image-path", help="Local path to the talking photo image")
-    parser.add_argument("--image-url", help="Public URL to the talking photo image")
 
-    # Optional dimensions and output
+    # Core content
+    parser.add_argument("--segment-text", required=True, help="Text to be spoken in the video")
+    parser.add_argument("--heygen-voice-id", required=True, help="HeyGen voice id to use for speech")
+
+    # Avatar character options
+    parser.add_argument("--avatar-id", required=True, help="HeyGen avatar_id to render")
+    parser.add_argument("--avatar-style", default="normal")
+    parser.add_argument("--avatar-scale", type=float, default=1.0)
+    parser.add_argument("--talking-style", default="stable")
+    parser.add_argument("--expression", default="default")
+
+    # Voice options
+    parser.add_argument("--emotion", help="Voice emotion tag")
+    parser.add_argument("--locale", default="en-US")
+    parser.add_argument("--speed", type=float, default=1.0)
+    parser.add_argument("--pitch", type=float, default=0.0)
+
+    # Background and caption
+    parser.add_argument("--background-type", default="image")
+    parser.add_argument("--caption", action="store_true", help="Enable auto captions")
+
+    # Optional overlay text
+    parser.add_argument("--overlay-text", help="Optional overlay text content")
+    parser.add_argument("--overlay-font-family", default="Arial")
+    parser.add_argument("--overlay-font-weight", default="bold")
+    parser.add_argument("--overlay-color", default="#050404")
+    parser.add_argument("--overlay-text-align", default="center")
+    parser.add_argument("--overlay-font-size", type=float)
+    parser.add_argument("--overlay-line-height", type=float)
+
+    # Dimensions and output
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--out-dir", default="outputs")
@@ -148,34 +139,77 @@ def main():
     # Resolve HeyGen key
     heygen_api_key = resolve_heygen_api_key(args.heygen_api_key)
 
-    if not args.image_path and not args.image_url:
-        raise RuntimeError("Provide either --image-path or --image-url for the talking photo")
-
-    # Build image source (prefer URL if both provided)
-    if args.image_url:
-        image_source = args.image_url.strip()
-    else:
-        image_path = Path(args.image_path)
-        if not image_path.is_file():
-            raise FileNotFoundError(f"Image not found: {image_path}")
-        mime = _guess_mime_type_from_path(image_path)
-        image_bytes = image_path.read_bytes()
-        image_source = _build_data_url(image_bytes, mime)
-
     width, height = args.width, args.height
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Build payload aligned with provided sample
+    video_inputs = []
+    # Entry 1: background setup with avatar shell (no id)
+    video_inputs.append({
+        "character": {
+            "type": "avatar",
+            "scale": args.avatar_scale,
+            "avatar_style": args.avatar_style,
+        },
+        "background": {"type": args.background_type},
+    })
+
+    # Entry 2: actual speaking avatar with voice
+    character_obj: Dict[str, Any] = {
+        "type": "avatar",
+        "scale": args.avatar_scale,
+        "avatar_style": args.avatar_style,
+        "avatar_id": args.avatar_id,
+        "talking_style": args.talking_style,
+        "expression": args.expression,
+    }
+    voice_obj: Dict[str, Any] = {
+        "type": "text",
+        "input_text": args.segment_text,
+        "voice_id": args.heygen_voice_id,
+        "locale": args.locale,
+        "speed": args.speed,
+        "pitch": args.pitch,
+    }
+    if args.emotion:
+        voice_obj["emotion"] = args.emotion
+
+    entry_two: Dict[str, Any] = {
+        "character": character_obj,
+        "voice": voice_obj,
+        "background": {"type": args.background_type},
+    }
+
+    if args.overlay_text:
+        text_overlay: Dict[str, Any] = {
+            "type": "text",
+            "text": args.overlay_text,
+            "font_family": args.overlay_font_family,
+            "font_weight": args.overlay_font_weight,
+            "color": args.overlay_color,
+            "text_align": args.overlay_text_align,
+        }
+        if args.overlay_font_size is not None:
+            text_overlay["font_size"] = args.overlay_font_size
+        if args.overlay_line_height is not None:
+            text_overlay["line_height"] = args.overlay_line_height
+        entry_two["text"] = text_overlay
+
+    video_inputs.append(entry_two)
+
+    payload: Dict[str, Any] = {
+        "caption": bool(args.caption),
+        "dimension": {"width": width, "height": height},
+        "video_inputs": video_inputs,
+    }
+
     print("[step] Submitting HeyGen video.generate job...")
     video_id = submit_heygen_generate(
         api_host=args.heygen_api_host,
         api_key=heygen_api_key,
-        image_source=image_source,
-        script_text=args.segment_text,
-        voice_id=args.heygen_voice_id,
-        width=width,
-        height=height,
+        payload=payload,
     )
     print(f"[ok] Job submitted. video_id={video_id}")
 
