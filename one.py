@@ -154,9 +154,11 @@ def main():
     video_inputs.append({
         "character": {
             "type": "avatar",
-            "scale": args.avatar_scale,
-            "avatar_style": args.avatar_style,
-            "avatar_id": args.avatar_id,
+            "avatar": {
+                "avatar_id": args.avatar_id,
+                "scale": args.avatar_scale,
+                "avatar_style": args.avatar_style,
+            },
         },
         "background": background_one,
     })
@@ -164,11 +166,13 @@ def main():
     # Entry 2: actual speaking avatar with voice
     character_obj: Dict[str, Any] = {
         "type": "avatar",
-        "scale": args.avatar_scale,
-        "avatar_style": args.avatar_style,
-        "avatar_id": args.avatar_id,
-        "talking_style": args.talking_style,
-        "expression": args.expression,
+        "avatar": {
+            "avatar_id": args.avatar_id,
+            "scale": args.avatar_scale,
+            "avatar_style": args.avatar_style,
+            "talking_style": args.talking_style,
+            "expression": args.expression,
+        },
     }
     voice_obj: Dict[str, Any] = {
         "type": "text",
