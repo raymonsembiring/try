@@ -118,6 +118,7 @@ def main():
 
     # Background and caption
     parser.add_argument("--background-type", default="image")
+    parser.add_argument("--background-url", help="Public image URL to use as background when type=image")
     parser.add_argument("--caption", action="store_true", help="Enable auto captions")
 
     # Optional overlay text
@@ -147,13 +148,16 @@ def main():
     # Build payload aligned with provided sample
     video_inputs = []
     # Entry 1: background setup with avatar shell (no id)
+    background_one: Dict[str, Any] = {"type": args.background_type}
+    if args.background_url and args.background_type == "image":
+        background_one["image_url"] = args.background_url
     video_inputs.append({
         "character": {
             "type": "avatar",
             "scale": args.avatar_scale,
             "avatar_style": args.avatar_style,
         },
-        "background": {"type": args.background_type},
+        "background": background_one,
     })
 
     # Entry 2: actual speaking avatar with voice
@@ -176,10 +180,13 @@ def main():
     if args.emotion:
         voice_obj["emotion"] = args.emotion
 
+    background_two: Dict[str, Any] = {"type": args.background_type}
+    if args.background_url and args.background_type == "image":
+        background_two["image_url"] = args.background_url
     entry_two: Dict[str, Any] = {
         "character": character_obj,
         "voice": voice_obj,
-        "background": {"type": args.background_type},
+        "background": background_two,
     }
 
     if args.overlay_text:
