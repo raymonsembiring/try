@@ -145,25 +145,10 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Build payload aligned with provided sample
+    # Build payload aligned with provided sample (single speaking avatar entry)
     video_inputs = []
-    # Entry 1: background setup with avatar (includes avatar_id to satisfy API)
-    background_one: Dict[str, Any] = {"type": args.background_type}
-    if args.background_url and args.background_type == "image":
-        background_one["image_url"] = args.background_url
-    video_inputs.append({
-        "character": {
-            "type": "avatar",
-            "avatar": {
-                "avatar_id": args.avatar_id,
-                "scale": args.avatar_scale,
-                "avatar_style": args.avatar_style,
-            },
-        },
-        "background": background_one,
-    })
 
-    # Entry 2: actual speaking avatar with voice
+    # Speaking avatar with voice
     character_obj: Dict[str, Any] = {
         "type": "avatar",
         "avatar": {
